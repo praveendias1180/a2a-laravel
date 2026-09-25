@@ -1,0 +1,30 @@
+{
+    "name": "praveendias1180/a2a-laravel",
+    "description": "Laravel bridge for the A2A PHP SDK: routes, queued task runner, Redis streaming, Eloquent stores.",
+    "type": "library",
+    "license": "Apache-2.0",
+    "keywords": ["a2a", "a2a-protocol", "agent2agent", "laravel", "ai-agents"],
+    "homepage": "https://github.com/praveendias1180/a2a-php",
+    "support": {
+        "issues": "https://github.com/praveendias1180/a2a-php/issues",
+        "source": "https://github.com/praveendias1180/a2a-php"
+    },
+    "authors": [
+        {"name": "Praveen Dias", "homepage": "https://github.com/praveendias1180"}
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "praveendias1180/a2a-php": "^0.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "A2A\\Laravel\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": ["A2A\\Laravel\\A2AServiceProvider"]
+        }
+    }
+}
