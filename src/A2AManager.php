@@ -83,13 +83,26 @@ class A2AManager
         $card = $this->resolveCard($agent->card);
         if ($baseUrl !== null && count($card->getSupportedInterfaces()) === 0) {
             $base = rtrim($baseUrl, '/');
-            $card->setSupportedInterfaces([
+            $interfaces = [
                 new AgentInterface(['url' => $base . '/jsonrpc', 'protocol_binding' => TransportProtocol::JSONRPC->value, 'protocol_version' => '1.0']),
                 new AgentInterface(['url' => $base . '/rest', 'protocol_binding' => TransportProtocol::HTTP_JSON->value, 'protocol_version' => '1.0']),
-            ]);
+            ];
+            if ($this->v03CompatEnabled()) {
+                $interfaces[] = new AgentInterface(['url' => $base . '/jsonrpc', 'protocol_binding' => TransportProtocol::JSONRPC->value, 'protocol_version' => '0.3']);
+                $interfaces[] = new AgentInterface(['url' => $base . '/rest', 'protocol_binding' => TransportProtocol::HTTP_JSON->value, 'protocol_version' => '0.3']);
+            }
+            $card->setSupportedInterfaces($interfaces);
         }
 
         return $card;
+    }
+
+    /**
+     * Whether the routes also serve A2A v0.3 clients (config a2a.v0_3_compat).
+     */
+    public function v03CompatEnabled(): bool
+    {
+        return (bool) $this->config->get('a2a.v0_3_compat', false);
     }
 
     public function extendedCard(AgentDefinition $agent, ?string $baseUrl = null): ?AgentCard

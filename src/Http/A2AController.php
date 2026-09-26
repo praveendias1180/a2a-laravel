@@ -42,7 +42,7 @@ final class A2AController
         $agent = $this->agent($request);
         $handler = $this->handler($agent);
 
-        return $this->serve($request, Routes::jsonRpc($handler, logger: $this->manager->logger()));
+        return $this->serve($request, Routes::jsonRpc($handler, logger: $this->manager->logger(), enableV03Compat: $this->manager->v03CompatEnabled()));
     }
 
     public function rest(Request $request): Response
@@ -51,7 +51,7 @@ final class A2AController
         $handler = $this->handler($agent);
         $prefix = rtrim($request->getBaseUrl() . '/' . trim($agent->prefix, '/'), '/') . '/rest';
 
-        return $this->serve($request, Routes::rest($handler, str_replace('//', '/', $prefix), logger: $this->manager->logger()));
+        return $this->serve($request, Routes::rest($handler, str_replace('//', '/', $prefix), logger: $this->manager->logger(), enableV03Compat: $this->manager->v03CompatEnabled()));
     }
 
     private function handler(AgentDefinition $agent): DefaultRequestHandler

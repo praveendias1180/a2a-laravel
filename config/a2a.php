@@ -176,6 +176,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | A2A v0.3 compatibility
+    |--------------------------------------------------------------------------
+    |
+    | Also serve A2A v0.3 clients on the same routes: the v0.3 JSON-RPC
+    | methods (`message/send`, ...) and the v0.3 REST routes (`/rest/v1/...`),
+    | translated to v1.0 for your executor. When the card's interfaces are
+    | filled in automatically, v0.3 interfaces are added too, and the served
+    | card carries the v0.3 fields (url, preferredTransport, ...). Off by
+    | default, as in the Python SDK (enable_v0_3_compat).
+    |
+    */
+
+    'v0_3_compat' => (bool) env('A2A_V0_3_COMPAT', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Security schemes
     |--------------------------------------------------------------------------
     |

@@ -44,6 +44,12 @@ final class JsonRpcTest extends TestCase
             ->assertJsonPath('result.task.status.state', 'TASK_STATE_COMPLETED');
     }
 
+    public function testV03MethodsAreOffByDefault(): void
+    {
+        $this->rpc('message/send', ['message' => ['kind' => 'message', 'messageId' => 'm', 'role' => 'user', 'parts' => []]])
+            ->assertJsonPath('error.code', -32601);
+    }
+
     public function testUnknownTasksAreNotFound(): void
     {
         $this->rpc('GetTask', ['id' => 'nope'])->assertJsonPath('error.code', -32001);
