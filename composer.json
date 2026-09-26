@@ -50,6 +50,7 @@
     },
     "suggest": {
         "ext-redis": "Redis Streams event log (a2a.events.driver = redis) with phpredis",
+        "firebase/php-jwt": "Agent Card signing (a2a.signing)",
         "predis/predis": "Redis Streams event log (a2a.events.driver = redis) without the extension",
         "illuminate/redis": "Needed for the redis events driver"
     }

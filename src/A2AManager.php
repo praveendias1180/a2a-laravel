@@ -10,6 +10,7 @@ use A2A\Client\ClientConfig;
 use A2A\Client\ClientFactory;
 use A2A\Laravel\Contracts\AgentCardProvider;
 use A2A\Laravel\Events\RedisQueueManager;
+use A2A\Laravel\Push\QueuedPushNotificationSender;
 use A2A\Laravel\Queue\QueuedTaskRunner;
 use A2A\Laravel\Stores\DatabasePushNotificationConfigStore;
 use A2A\Server\AgentExecution\AgentExecutor;
@@ -18,10 +19,15 @@ use A2A\Server\AgentExecution\TaskRunner;
 use A2A\Server\Events\PdoQueueManager;
 use A2A\Server\Events\QueueManager;
 use A2A\Server\RequestHandlers\DefaultRequestHandler;
+use A2A\Server\Tasks\BasePushNotificationSender;
 use A2A\Server\Tasks\PdoTaskStore;
+use A2A\Server\Tasks\PushNotificationConfigStore;
+use A2A\Server\Tasks\PushNotificationSender;
 use A2A\Server\Tasks\TaskStore;
 use A2A\Types\AgentCard;
 use A2A\Types\AgentInterface;
+use A2A\Utils\PushUrlValidator;
+use A2A\Utils\Signing;
 use A2A\Utils\TransportProtocol;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
@@ -45,6 +51,8 @@ class A2AManager
     private ?QueueManager $queueManager = null;
 
     private ?TaskStore $taskStore = null;
+
+    private ?PushNotificationConfigStore $pushConfigStore = null;
 
     public function __construct(
         private readonly Container $container,
@@ -113,18 +121,137 @@ class A2AManager
      */
     public function handler(AgentDefinition $agent, ?string $baseUrl = null): DefaultRequestHandler
     {
+        $card = $this->card($agent, $baseUrl);
+
         return new DefaultRequestHandler(
             agentExecutor: $this->executor($agent),
             taskStore: $this->taskStore(),
-            agentCard: $this->card($agent, $baseUrl),
+            agentCard: $card,
             queueManager: $this->queueManager(),
-            pushConfigStore: new DatabasePushNotificationConfigStore(),
+            pushConfigStore: $this->pushConfigStore(),
+            pushUrlValidator: $this->pushUrlValidator(),
+            pushSender: $this->pushSender($card),
             extendedAgentCard: $this->extendedCard($agent, $baseUrl),
+            extendedCardModifier: $this->extendedCardSigner(),
             taskRunner: $this->runner($agent),
             logger: $this->logger(),
             keepAliveSeconds: $this->float('a2a.sse.keep_alive', 15.0),
             subscribePollSeconds: $this->float('a2a.sse.poll', 0.25),
             maxSubscribeIdleSeconds: $this->nullableFloat('a2a.sse.max_idle'),
+        );
+    }
+
+    /**
+     * The Agent Card signer from `a2a.signing`, or null when no key is set.
+     *
+     * @return (\Closure(AgentCard): AgentCard)|null
+     */
+    public function cardSigner(): ?\Closure
+    {
+        $key = $this->config->get('a2a.signing.key');
+        if (!is_string($key) || $key === '') {
+            return null;
+        }
+        if (str_starts_with($key, 'file://')) {
+            $contents = file_get_contents(substr($key, 7));
+            if ($contents === false) {
+                throw new \RuntimeException(sprintf('Cannot read the A2A signing key %s.', $key));
+            }
+            $key = $contents;
+        }
+        $alg = $this->config->get('a2a.signing.alg', 'ES256');
+        $kid = $this->config->get('a2a.signing.kid', 'a2a');
+        $jku = $this->config->get('a2a.signing.jku');
+
+        return Signing::createAgentCardSigner($key, [
+            'alg' => is_string($alg) ? $alg : 'ES256',
+            'kid' => is_string($kid) ? $kid : 'a2a',
+            'jku' => is_string($jku) ? $jku : null,
+            'typ' => 'JOSE',
+        ]);
+    }
+
+    /**
+     * Signs a copy of the extended card per request, when signing is on.
+     *
+     * @return (\Closure(AgentCard, \A2A\Server\ServerCallContext): AgentCard)|null
+     */
+    private function extendedCardSigner(): ?\Closure
+    {
+        $signer = $this->cardSigner();
+        if ($signer === null) {
+            return null;
+        }
+
+        return static function (AgentCard $card) use ($signer): AgentCard {
+            $copy = new AgentCard();
+            $copy->mergeFrom($card);
+
+            return $signer($copy);
+        };
+    }
+
+    public function pushConfigStore(): PushNotificationConfigStore
+    {
+        return $this->pushConfigStore ??= new DatabasePushNotificationConfigStore();
+    }
+
+    /**
+     * The sender for an agent's push notifications, or null when the agent
+     * does not declare pushNotifications or `a2a.push.enabled` is false.
+     * By default notifications go through a queue job (`a2a.push.queue`);
+     * with `a2a.push.queue` false they are sent inline.
+     */
+    public function pushSender(AgentCard $card): ?PushNotificationSender
+    {
+        if ($card->getCapabilities()?->getPushNotifications() !== true || !$this->config->get('a2a.push.enabled', true)) {
+            return null;
+        }
+        if (!$this->config->get('a2a.push.queue', true)) {
+            return $this->directPushSender();
+        }
+
+        return new QueuedPushNotificationSender(
+            $this->container->make(Dispatcher::class),
+            $this->pushConfigStore(),
+            $this->nullableString('a2a.push.connection'),
+            $this->nullableString('a2a.push.queue_name'),
+        );
+    }
+
+    /**
+     * The sender that actually POSTs to webhooks (used by the push job, or
+     * directly when `a2a.push.queue` is false). Bind `a2a.push.http_client`
+     * in the container to use a specific HTTP client (an HttpSender, Guzzle,
+     * Symfony HttpClient or PSR-18 client); otherwise one is discovered.
+     */
+    public function directPushSender(): BasePushNotificationSender
+    {
+        $attempts = $this->config->get('a2a.push.max_attempts', 3);
+        $client = $this->container->bound('a2a.push.http_client') ? $this->container->make('a2a.push.http_client') : null;
+
+        return new BasePushNotificationSender(
+            configStore: $this->pushConfigStore(),
+            httpClient: is_object($client) ? $client : null,
+            pushUrlValidator: $this->pushUrlValidator(),
+            maxAttempts: is_numeric($attempts) ? max(1, (int) $attempts) : 3,
+            initialBackoffSeconds: $this->float('a2a.push.backoff', 0.5),
+            timeoutSeconds: $this->float('a2a.push.timeout', 5.0),
+            logger: $this->logger(),
+        );
+    }
+
+    /**
+     * Push-URL screening (SSRF guard), with `a2a.push.allowed_hosts`
+     * exempt (for a local webhook in development).
+     */
+    public function pushUrlValidator(): PushUrlValidator
+    {
+        $allowed = $this->config->get('a2a.push.allowed_hosts', []);
+
+        return new PushUrlValidator(
+            logger: $this->logger(),
+            allowedHosts: is_array($allowed) ? array_values(array_filter($allowed, 'is_string')) : [],
         );
     }
 

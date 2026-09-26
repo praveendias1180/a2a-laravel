@@ -34,7 +34,7 @@ final class A2AController
     {
         $agent = $this->agent($request);
 
-        return $this->serve($request, Routes::agentCard($this->manager->card($agent, $this->baseUrl($agent))));
+        return $this->serve($request, Routes::agentCard($this->manager->card($agent, $this->baseUrl($agent)), signer: $this->manager->cardSigner()));
     }
 
     public function jsonRpc(Request $request): Response

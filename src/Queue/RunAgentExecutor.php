@@ -54,7 +54,7 @@ final class RunAgentExecutor implements ShouldQueue
 
     /**
      * @param array<string, mixed>                                                                                            $agent  AgentDefinition::toArray()
-     * @param array{user: string, authenticated: bool, tenant: string, extensions: list<string>, headers: array<string, string>} $caller
+     * @param array{user: string, authenticated: bool, tenant: string, extensions: list<string>, activated?: list<string>, headers: array<string, string>} $caller
      */
     public function __construct(
         public readonly array $agent,
@@ -89,6 +89,7 @@ final class RunAgentExecutor implements ShouldQueue
                 'authenticated' => $call->user->isAuthenticated(),
                 'tenant' => $call->tenant,
                 'extensions' => $call->requestedExtensions,
+                'activated' => $call->activatedExtensions,
                 'headers' => $headers,
             ],
         );
@@ -159,13 +160,15 @@ final class RunAgentExecutor implements ShouldQueue
                 user: new SerializedUser($this->caller['user'], $this->caller['authenticated']),
                 tenant: $this->caller['tenant'],
                 requestedExtensions: $this->caller['extensions'],
+                activatedExtensions: $this->caller['activated'] ?? [],
             );
 
             $taskStore = $manager->taskStore();
             $executor = $manager->executor($agent);
             $context = (new SimpleRequestContextBuilder(taskStore: $taskStore))
                 ->build($callContext, $request, $this->taskId, $this->contextId);
-            $activeTask = (new ActiveTaskRegistry($executor, $taskStore, $queueManager, $logger))
+            $pushSender = $manager->pushSender($manager->card($agent));
+            $activeTask = (new ActiveTaskRegistry($executor, $taskStore, $queueManager, $logger, $pushSender))
                 ->create($this->taskId, $callContext, $this->contextId, $request->getMessage());
 
             try {

@@ -128,6 +128,54 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Agent Card signing
+    |--------------------------------------------------------------------------
+    |
+    | Serve the Agent Card (and the extended card) signed: a JWS over its
+    | RFC 8785 canonical form (spec 8.4). Needs firebase/php-jwt. `key` is
+    | the private key PEM (or `file:///path/to/key.pem`), or the HMAC secret
+    | for HS* algorithms; leave it empty to serve unsigned cards.
+    |
+    */
+
+    'signing' => [
+        'key' => env('A2A_SIGNING_KEY'),
+        'alg' => env('A2A_SIGNING_ALG', 'ES256'),
+        'kid' => env('A2A_SIGNING_KID', 'a2a'),
+        // URL of the JWK Set clients fetch the public key from (optional).
+        'jku' => env('A2A_SIGNING_JKU'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Push notifications
+    |--------------------------------------------------------------------------
+    |
+    | Used for agents whose card declares `capabilities.pushNotifications`.
+    | Every task update is POSTed to the task's webhooks. By default that
+    | happens in a queue job (SendPushNotification), so a slow webhook never
+    | holds up the agent; set `queue` to false to send inline instead.
+    | Webhook URLs must resolve to public addresses (SSRF guard); list hosts
+    | in `allowed_hosts` to exempt them, e.g. a local receiver in development.
+    |
+    */
+
+    'push' => [
+        'enabled' => (bool) env('A2A_PUSH_ENABLED', true),
+        'queue' => (bool) env('A2A_PUSH_QUEUE_ENABLED', true),
+        'connection' => env('A2A_PUSH_QUEUE_CONNECTION'),
+        'queue_name' => env('A2A_PUSH_QUEUE'),
+        // Attempts per webhook (network errors, 408, 425, 429 and 5xx retry).
+        'max_attempts' => 3,
+        // Seconds before the first retry; doubles each time (Retry-After wins).
+        'backoff' => 0.5,
+        // Seconds per attempt.
+        'timeout' => 5.0,
+        'allowed_hosts' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Security schemes
     |--------------------------------------------------------------------------
     |

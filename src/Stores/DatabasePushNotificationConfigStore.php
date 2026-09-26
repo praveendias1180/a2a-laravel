@@ -47,12 +47,29 @@ final class DatabasePushNotificationConfigStore implements PushNotificationConfi
 
     public function getInfo(string $taskId, ServerCallContext $context): array
     {
-        $configs = [];
-        $stored = PushNotificationConfigModel::query()
+        return self::decodeAll(PushNotificationConfigModel::query()
             ->where('owner', ($this->ownerResolver)($context))
             ->where('task_id', $taskId)
             ->orderBy('id')
-            ->pluck('config');
+            ->pluck('config'));
+    }
+
+    public function getInfoForDispatch(string $taskId): array
+    {
+        return self::decodeAll(PushNotificationConfigModel::query()
+            ->where('task_id', $taskId)
+            ->orderBy('id')
+            ->pluck('config'));
+    }
+
+    /**
+     * @param iterable<mixed> $stored
+     *
+     * @return list<TaskPushNotificationConfig>
+     */
+    private static function decodeAll(iterable $stored): array
+    {
+        $configs = [];
         foreach ($stored as $json) {
             if (!is_string($json)) {
                 continue;
