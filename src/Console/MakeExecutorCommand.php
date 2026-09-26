@@ -8,6 +8,8 @@ use Illuminate\Console\GeneratorCommand;
 
 /**
  * php artisan a2a:make-executor Hello  →  app/A2A/HelloExecutor.php
+ *
+ * @internal Not covered by the 1.x backward-compatibility promise; may change in any release.
  */
 final class MakeExecutorCommand extends GeneratorCommand
 {

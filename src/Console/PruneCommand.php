@@ -17,6 +17,8 @@ use Illuminate\Console\Command;
  * never deleted. Redis events expire on their own.
  *
  * Schedule it: Schedule::command('a2a:prune')->daily();
+ *
+ * @internal Not covered by the 1.x backward-compatibility promise; may change in any release.
  */
 final class PruneCommand extends Command
 {

@@ -16,6 +16,8 @@ use Illuminate\Routing\Router;
  * php artisan a2a:card [agent]: prints an agent's card as it will be served
  * and checks it (required fields, at least one skill and one interface).
  * Exits 1 when the card is invalid.
+ *
+ * @internal Not covered by the 1.x backward-compatibility promise; may change in any release.
  */
 final class CardCommand extends Command
 {

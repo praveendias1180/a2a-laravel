@@ -16,6 +16,8 @@ use Symfony\Component\Process\Process;
  * behind nginx: `php artisan serve` (PHP's built-in server) can queue a
  * request behind an open stream, which makes the TCK's parallel-stream
  * tests fail at random.
+ *
+ * @internal Not covered by the 1.x backward-compatibility promise; may change in any release.
  */
 final class TckCommand extends Command
 {

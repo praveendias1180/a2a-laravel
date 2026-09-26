@@ -10,6 +10,8 @@ use A2A\Auth\User;
  * The caller's identity as a queue job carries it to the worker: just the
  * user name and whether they were authenticated, so the worker writes the
  * task under the same owner as the web request would.
+ *
+ * @internal Not covered by the 1.x backward-compatibility promise; may change in any release.
  */
 final class SerializedUser implements User
 {

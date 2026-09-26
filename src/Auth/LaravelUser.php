@@ -10,6 +10,8 @@ use Illuminate\Contracts\Auth\Authenticatable;
 /**
  * A Laravel user as an A2A user. The auth identifier (normally the primary
  * key) is the user name, so it is what tasks are scoped by.
+ *
+ * @internal Not covered by the 1.x backward-compatibility promise; may change in any release.
  */
 final class LaravelUser implements User
 {

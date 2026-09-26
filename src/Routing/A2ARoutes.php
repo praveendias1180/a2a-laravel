@@ -15,6 +15,8 @@ use Illuminate\Routing\Router;
  *
  * middleware() applies to the JSON-RPC and REST routes only. The Agent Card
  * stays public, as discovery requires.
+ *
+ * @internal Not covered by the 1.x backward-compatibility promise; may change in any release.
  */
 final class A2ARoutes
 {
